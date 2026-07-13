@@ -3,260 +3,178 @@ import requests
 import random
 
 st.set_page_config(
-    page_title="Weather Music",
+    page_title="서울 날씨 음악 추천",
     page_icon="🎵",
     layout="wide"
 )
 
-#############################
+# -----------------------
 # CSS
-#############################
-
+# -----------------------
 st.markdown("""
 <style>
 
 .stApp{
-background:linear-gradient(135deg,#0f172a,#1e3a8a,#312e81);
+background:linear-gradient(135deg,#141E30,#243B55);
 color:white;
 }
 
-.big{
+.title{
 font-size:55px;
-font-weight:700;
+font-weight:bold;
 text-align:center;
-margin-top:20px;
-margin-bottom:5px;
 }
 
-.sub{
+.subtitle{
 text-align:center;
 font-size:20px;
 color:#dddddd;
 margin-bottom:40px;
 }
 
-.song-card{
-padding:25px;
+.card{
+padding:30px;
 border-radius:25px;
 color:white;
-box-shadow:0 10px 30px rgba(0,0,0,.3);
-margin-bottom:20px;
-transition:.4s;
+box-shadow:0px 10px 30px rgba(0,0,0,.3);
+margin-top:30px;
 }
 
-.song-card:hover{
-transform:scale(1.03);
-}
-
-.song-title{
-font-size:30px;
+.song{
+font-size:34px;
 font-weight:bold;
 }
 
 .artist{
-font-size:20px;
-opacity:0.85;
+font-size:22px;
+opacity:.9;
 }
 
 .weather{
 font-size:18px;
+margin-top:15px;
+}
+
+.temp{
+font-size:22px;
+font-weight:bold;
 margin-top:10px;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-#############################
+# -----------------------
 # 노래 데이터
-#############################
+# -----------------------
 
 music = {
 
 "Clear":[
-
-{
-"title":"Golden",
-"artist":"Harry Styles",
-"color":"#FFD54F",
-"emoji":"☀️"
-},
-
-{
-"title":"Sunflower",
-"artist":"Post Malone",
-"color":"#FBC02D",
-"emoji":"🌻"
-},
-
-{
-"title":"Walking on Sunshine",
-"artist":"Katrina & The Waves",
-"color":"#FFB300",
-"emoji":"🌞"
-}
-
+("Golden","Harry Styles","#F4B400","☀️"),
+("Sunflower","Post Malone","#FBC02D","🌻"),
+("Walking on Sunshine","Katrina & The Waves","#FFA000","🌞")
 ],
 
 "Clouds":[
-
-{
-"title":"Blue & Grey",
-"artist":"BTS",
-"color":"#607D8B",
-"emoji":"☁️"
-},
-
-{
-"title":"Daydream",
-"artist":"J-Hope",
-"color":"#90A4AE",
-"emoji":"🌥️"
-},
-
-{
-"title":"Paris in the Rain",
-"artist":"Lauv",
-"color":"#78909C",
-"emoji":"🌫️"
-}
-
+("Blue & Grey","BTS","#607D8B","☁️"),
+("Daydream","j-hope","#78909C","🌥️"),
+("Paris in the Rain","Lauv","#90A4AE","🌫️")
 ],
 
 "Rain":[
-
-{
-"title":"Rain",
-"artist":"Taeyeon",
-"color":"#4FC3F7",
-"emoji":"🌧️"
-},
-
-{
-"title":"Umbrella",
-"artist":"Rihanna",
-"color":"#0288D1",
-"emoji":"☔"
-},
-
-{
-"title":"Through the Rain",
-"artist":"Mariah Carey",
-"color":"#29B6F6",
-"emoji":"💧"
-}
-
+("Rain","태연","#42A5F5","🌧️"),
+("Umbrella","Rihanna","#1976D2","☔"),
+("Through the Rain","Mariah Carey","#29B6F6","💧")
 ],
 
 "Snow":[
-
-{
-"title":"Snowman",
-"artist":"Sia",
-"color":"#B3E5FC",
-"emoji":"❄️"
-},
-
-{
-"title":"White Winter Hymnal",
-"artist":"Fleet Foxes",
-"color":"#E1F5FE",
-"emoji":"☃️"
-},
-
-{
-"title":"Winter Bear",
-"artist":"V",
-"color":"#BBDEFB",
-"emoji":"🩵"
-}
-
+("Snowman","Sia","#B3E5FC","❄️"),
+("Winter Bear","V","#BBDEFB","🩵"),
+("White Winter Hymnal","Fleet Foxes","#E1F5FE","☃️")
 ],
 
 "Thunderstorm":[
-
-{
-"title":"Thunder",
-"artist":"Imagine Dragons",
-"color":"#673AB7",
-"emoji":"⚡"
-},
-
-{
-"title":"Electric Love",
-"artist":"BØRNS",
-"color":"#512DA8",
-"emoji":"🌩️"
-}
-
+("Thunder","Imagine Dragons","#673AB7","⚡"),
+("Electric Love","BØRNS","#512DA8","🌩️")
 ]
 
 }
 
-#############################
-# 타이틀
-#############################
+# -----------------------
+# 서울 날씨 가져오기
+# -----------------------
 
-st.markdown('<div class="big">🎵 Weather Melody</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub">오늘의 날씨에 어울리는 음악을 추천합니다.</div>', unsafe_allow_html=True)
+def get_weather():
 
-city = st.text_input("도시 이름 입력", "Seoul")
+    url = (
+        "https://api.open-meteo.com/v1/forecast?"
+        "latitude=37.5665&longitude=126.9780"
+        "&current=temperature_2m,weather_code"
+    )
 
-#############################
-# API
-#############################
+    data = requests.get(url).json()
 
-API_KEY = st.secrets["OPENWEATHER_API_KEY"]
+    temp = data["current"]["temperature_2m"]
+    code = data["current"]["weather_code"]
 
-if st.button("🎧 추천받기"):
+    if code == 0:
+        weather = "Clear"
 
-    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
+    elif code in [1,2,3]:
+        weather = "Clouds"
 
-    res = requests.get(url)
+    elif code in [61,63,65,80,81,82]:
+        weather = "Rain"
 
-    if res.status_code == 200:
+    elif code in [71,73,75,77,85,86]:
+        weather = "Snow"
 
-        data = res.json()
-
-        weather = data["weather"][0]["main"]
-
-        temp = data["main"]["temp"]
-
-        icon = data["weather"][0]["icon"]
-
-        st.image(f"https://openweathermap.org/img/wn/{icon}@2x.png", width=100)
-
-        st.success(f"현재 날씨 : {weather} | {temp:.1f}℃")
-
-        if weather not in music:
-            weather="Clouds"
-
-        song = random.choice(music[weather])
-
-        st.markdown(f"""
-        <div class="song-card" style="background:{song['color']};">
-
-        <div style="font-size:60px;">
-        {song['emoji']}
-        </div>
-
-        <div class="song-title">
-        {song['title']}
-        </div>
-
-        <div class="artist">
-        {song['artist']}
-        </div>
-
-        <div class="weather">
-        오늘 날씨 : {weather}
-        </div>
-
-        </div>
-
-        """, unsafe_allow_html=True)
-
-        st.balloons()
+    elif code in [95,96,99]:
+        weather = "Thunderstorm"
 
     else:
+        weather = "Clouds"
 
-        st.error("도시를 찾을 수 없습니다.")
+    return weather,temp
+
+# -----------------------
+# 화면
+# -----------------------
+
+st.markdown("<div class='title'>🎵 서울 날씨 음악 추천</div>",unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>오늘 서울의 날씨에 어울리는 음악을 추천합니다.</div>",unsafe_allow_html=True)
+
+if st.button("🎧 오늘의 추천 받기"):
+
+    weather,temp = get_weather()
+
+    title,artist,color,emoji = random.choice(music[weather])
+
+    st.markdown(f"""
+    <div class="card" style="background:{color};">
+
+    <div style="font-size:60px;">
+    {emoji}
+    </div>
+
+    <div class="song">
+    {title}
+    </div>
+
+    <div class="artist">
+    {artist}
+    </div>
+
+    <div class="temp">
+    🌡️ {temp}°C
+    </div>
+
+    <div class="weather">
+    오늘 서울의 날씨 : {weather}
+    </div>
+
+    </div>
+    """,unsafe_allow_html=True)
+
+    st.balloons()
