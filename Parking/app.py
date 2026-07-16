@@ -94,7 +94,9 @@ df = df.dropna(subset=["위도", "경도"])
 def get_gu(address):
 
     try:
-        return address.split()[1]
+        # 주소의 첫 번째 단어가 자치구
+        return str(address).split()[0]
+
     except:
         return "기타"
 
