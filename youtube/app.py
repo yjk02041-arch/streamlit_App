@@ -792,9 +792,9 @@ with tab3:
         use_container_width=True
     )
     
-     st.error(f"댓글을 불러올 수 없습니다.\n{e}")
+st.error(f"댓글을 불러올 수 없습니다.\n{e}")
 
-    return pd.DataFrame(comments)
+return pd.DataFrame(comments)
 # =====================================================
 # Part 5-2 : 요일별 분석 및 최종 대시보드
 # =====================================================
