@@ -622,48 +622,334 @@ st.download_button(
     "text/csv"
 
 )
-def get_comments(video_id, limit=300):
+# =====================================================
+# Part 5-1 : 추가 분석 기능
+# =====================================================
 
-    comments = []
-    nextPageToken = None
+st.divider()
+st.header("📈 추가 분석")
 
-    try:
+df = st.session_state["comments"].copy()
 
-        while len(comments) < limit:
+# -----------------------------
+# 탭 생성
+# -----------------------------
+tab1, tab2, tab3 = st.tabs(
+    [
+        "⭐ 인기 댓글",
+        "🔍 댓글 검색",
+        "📏 댓글 길이 분석"
+    ]
+)
 
-            request = youtube.commentThreads().list(
-                part="snippet",
-                videoId=video_id,
-                maxResults=100,
-                pageToken=nextPageToken,
-                textFormat="plainText"
+# =====================================================
+# 인기 댓글
+# =====================================================
+with tab1:
+
+    st.subheader("좋아요 TOP10 댓글")
+
+    top10 = (
+        df.sort_values(
+            "좋아요",
+            ascending=False
+        )
+        .head(10)
+    )
+
+    fig = px.bar(
+
+        top10,
+
+        x="좋아요",
+
+        y="작성자",
+
+        orientation="h",
+
+        text="좋아요",
+
+        hover_data=["댓글"],
+
+        title="좋아요 TOP10"
+
+    )
+
+    fig.update_layout(
+
+        yaxis=dict(
+
+            autorange="reversed"
+
+        )
+
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
+
+    st.dataframe(
+        top10[
+            [
+                "작성자",
+                "좋아요",
+                "댓글"
+            ]
+        ],
+        use_container_width=True
+    )
+
+# =====================================================
+# 댓글 검색
+# =====================================================
+with tab2:
+
+    st.subheader("댓글 검색")
+
+    keyword = st.text_input(
+        "검색할 키워드 입력"
+    )
+
+    if keyword:
+
+        result = df[
+            df["댓글"].str.contains(
+                keyword,
+                case=False,
+                na=False
             )
+        ]
 
-            response = request.execute()
+        st.write(f"검색 결과 : {len(result)}개")
 
-            for item in response["items"]:
+        st.dataframe(
+            result[
+                [
+                    "작성자",
+                    "좋아요",
+                    "댓글"
+                ]
+            ],
+            use_container_width=True
+        )
 
-                c = item["snippet"]["topLevelComment"]["snippet"]
+# =====================================================
+# 댓글 길이 분석
+# =====================================================
+with tab3:
 
-                comments.append({
+    st.subheader("댓글 길이 분석")
 
-                    "작성자": c["authorDisplayName"],
-                    "댓글": c["textDisplay"],
-                    "좋아요": c["likeCount"],
-                    "작성시간": c["publishedAt"]
+    df["댓글길이"] = df["댓글"].astype(str).apply(len)
 
-                })
+    col1, col2, col3 = st.columns(3)
 
-                if len(comments) >= limit:
-                    break
+    with col1:
+        st.metric(
+            "평균 길이",
+            round(df["댓글길이"].mean(),1)
+        )
 
-            nextPageToken = response.get("nextPageToken")
+    with col2:
+        st.metric(
+            "최대 길이",
+            df["댓글길이"].max()
+        )
 
-            if nextPageToken is None:
-                break
+    with col3:
+        st.metric(
+            "최소 길이",
+            df["댓글길이"].min()
+        )
 
-    except Exception as e:
+    fig = px.histogram(
 
+        df,
+
+        x="댓글길이",
+
+        nbins=30,
+
+        title="댓글 길이 분포"
+
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
+
+    fig2 = px.box(
+        df,
+        y="댓글길이",
+        title="댓글 길이 Box Plot"
+    )
+
+    st.plotly_chart(
+        fig2,
+        use_container_width=True
+    )
+    
         st.error(f"댓글을 불러올 수 없습니다.\n{e}")
 
     return pd.DataFrame(comments)
+# =====================================================
+# Part 5-2 : 요일별 분석 및 최종 대시보드
+# =====================================================
+
+st.divider()
+st.header("📅 댓글 활동 분석")
+
+df = st.session_state["comments"].copy()
+
+# ----------------------------------
+# 날짜 변환
+# ----------------------------------
+df["작성시간"] = pd.to_datetime(df["작성시간"])
+
+df["요일"] = df["작성시간"].dt.day_name()
+
+weekday_map = {
+    "Monday":"월",
+    "Tuesday":"화",
+    "Wednesday":"수",
+    "Thursday":"목",
+    "Friday":"금",
+    "Saturday":"토",
+    "Sunday":"일"
+}
+
+df["요일"] = df["요일"].map(weekday_map)
+
+order = ["월","화","수","목","금","토","일"]
+
+weekday = (
+    df.groupby("요일")
+      .size()
+      .reindex(order, fill_value=0)
+      .reset_index(name="댓글 수")
+)
+
+st.subheader("요일별 댓글 작성 수")
+
+fig = px.bar(
+    weekday,
+    x="요일",
+    y="댓글 수",
+    text="댓글 수",
+    color="댓글 수"
+)
+
+st.plotly_chart(
+    fig,
+    use_container_width=True
+)
+
+# ----------------------------------
+# 시간 × 요일 Heatmap
+# ----------------------------------
+
+st.subheader("요일/시간 활동 Heatmap")
+
+df["시간"] = df["작성시간"].dt.hour
+
+heat = (
+    df.pivot_table(
+        index="요일",
+        columns="시간",
+        values="댓글",
+        aggfunc="count",
+        fill_value=0
+    )
+)
+
+heat = heat.reindex(order)
+
+fig = px.imshow(
+
+    heat,
+
+    labels=dict(
+        x="시간",
+        y="요일",
+        color="댓글 수"
+    ),
+
+    aspect="auto"
+
+)
+
+st.plotly_chart(
+    fig,
+    use_container_width=True
+)
+
+# ----------------------------------
+# 분석 결과 자동 요약
+# ----------------------------------
+
+st.divider()
+st.header("📋 분석 결과 요약")
+
+most_day = weekday.loc[
+    weekday["댓글 수"].idxmax(),
+    "요일"
+]
+
+most_hour = (
+    df["시간"]
+    .value_counts()
+    .idxmax()
+)
+
+avg_like = round(df["좋아요"].mean(),2)
+
+long_comment = df["댓글"].str.len().max()
+
+top_word = ""
+
+try:
+    top_word = counter.most_common(1)[0][0]
+except:
+    top_word = "-"
+
+st.success(
+f"""
+### 📊 분석 요약
+
+- 수집한 댓글 수 : **{len(df)}개**
+
+- 댓글이 가장 많이 작성된 요일 : **{most_day}요일**
+
+- 댓글이 가장 활발한 시간 : **{most_hour}시**
+
+- 평균 좋아요 수 : **{avg_like}개**
+
+- 가장 긴 댓글 길이 : **{long_comment}자**
+
+- 가장 많이 등장한 단어 : **{top_word}**
+"""
+)
+
+# ----------------------------------
+# 데이터 미리보기
+# ----------------------------------
+
+with st.expander("전체 댓글 데이터 보기"):
+
+    st.dataframe(
+        df,
+        use_container_width=True
+    )
+
+# ----------------------------------
+# Footer
+# ----------------------------------
+
+st.divider()
+
+st.caption("🎬 YouTube Comment Analyzer")
+
+st.caption("Made with Streamlit")
