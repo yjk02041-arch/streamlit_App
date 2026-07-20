@@ -792,7 +792,7 @@ with tab3:
         use_container_width=True
     )
     
-        st.error(f"댓글을 불러올 수 없습니다.\n{e}")
+     st.error(f"댓글을 불러올 수 없습니다.\n{e}")
 
     return pd.DataFrame(comments)
 # =====================================================
