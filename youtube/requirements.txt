@@ -4,7 +4,7 @@ pandas
 plotly
 matplotlib
 wordcloud
-konlpy
+kiwipiepy
 Pillow
 numpy
 requests
