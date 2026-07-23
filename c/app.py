@@ -263,7 +263,7 @@ st.plotly_chart(
 # 학과 검색
 # ==============================
 
-elif menu == "학과 검색":
+ elif menu == "학과 검색":
 
     st.header("🔍 학과 검색")
 
