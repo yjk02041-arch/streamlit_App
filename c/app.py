@@ -242,7 +242,7 @@ chart_data.append(
     }
 )
 
-    st.divider()
+st.divider()
 
 chart_df = pd.DataFrame(chart_data)
 
