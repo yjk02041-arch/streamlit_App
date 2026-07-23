@@ -101,7 +101,7 @@ major_data = []
 # ==============================
 
 try:
-    df = pd.read_csv("major_data.csv")
+    df = pd.read_excel("major_data.xlsx")
 except FileNotFoundError:
     st.error("major_data.csv 파일을 찾을 수 없습니다.")
     st.stop()
@@ -176,7 +176,88 @@ if menu == "학과 추천":
             for item in selected_subjects:
                 st.write(f"• {item}")
 
-        st.info("👉 Part 3에서 AI 추천 알고리즘이 실행됩니다.")
+# ====================================
+# 추천 결과 출력
+# ====================================
+
+recommendations = recommend_majors(
+    df,
+    selected_mbti,
+    selected_interests,
+    selected_subjects
+)
+
+st.divider()
+
+st.subheader("🎯 추천 학과 TOP 5")
+
+chart_data = []
+
+for i, major in enumerate(recommendations):
+
+    st.markdown(f"## {i+1}. {major['major']}")
+
+    st.progress(int(major["score"]))
+
+    st.write(f"**적합도 : {major['score']}점**")
+
+    st.write("### 추천 이유")
+
+    if len(major["reason"]) == 0:
+
+        st.write("- 추천 근거가 부족합니다.")
+
+    else:
+
+        for reason in major["reason"]:
+            st.write(f"- {reason}")
+
+with st.expander(f"📖 {major['major']} 상세 정보 보기"):
+
+    st.write("### 📚 학과 소개")
+    st.write(major["description"])
+
+    st.write("### 📖 배우는 과목")
+
+    if major["subjects"] != "":
+        for subject in str(major["subjects"]).split(";"):
+            st.write(f"- {subject}")
+
+    st.write("### 💡 필요한 역량")
+
+    if major["ability"] != "":
+        for ability in str(major["ability"]).split(";"):
+            st.write(f"- {ability}")
+
+    st.write("### 🏫 개설 대학")
+
+    if major["universities"] != "":
+        for university in str(major["universities"]).split(";"):
+            st.write(f"- {university}")
+
+chart_data.append(
+    {
+        "학과": major["major"],
+        "적합도": major["score"]
+    }
+)
+
+    st.divider()
+
+chart_df = pd.DataFrame(chart_data)
+
+fig = px.bar(
+    chart_df,
+    x="학과",
+    y="적합도",
+    text="적합도",
+    title="추천 학과 적합도 비교"
+)
+
+st.plotly_chart(
+    fig,
+    use_container_width=True
+)
 
 # ==============================
 # 학과 검색
@@ -186,10 +267,52 @@ elif menu == "학과 검색":
 
     st.header("🔍 학과 검색")
 
-    keyword = st.text_input("학과명을 입력하세요.")
+    keyword = st.text_input(
+        "검색할 학과명을 입력하세요."
+    )
 
     if keyword:
-        st.info("Part 8에서 검색 기능이 구현됩니다.")
+
+        result = df[
+            df["major"].str.contains(
+                keyword,
+                case=False,
+                na=False
+            )
+        ]
+
+        if len(result) == 0:
+
+            st.warning("검색 결과가 없습니다.")
+
+        else:
+
+            st.success(f"{len(result)}개의 학과를 찾았습니다.")
+
+            for _, row in result.iterrows():
+
+                with st.expander(row["major"]):
+
+                    st.write("### 📚 학과 소개")
+                    st.write(row["description"])
+
+                    st.write("### 📖 배우는 과목")
+
+                    if row["subjects"] != "":
+                        for subject in str(row["subjects"]).split(";"):
+                            st.write(f"- {subject}")
+
+                    st.write("### 💡 필요한 역량")
+
+                    if row["ability"] != "":
+                        for ability in str(row["ability"]).split(";"):
+                            st.write(f"- {ability}")
+
+                    st.write("### 🏫 개설 대학")
+
+                    if row["universities"] != "":
+                        for university in str(row["universities"]).split(";"):
+                            st.write(f"- {university}")
 
 # ==============================
 # 학과 비교
@@ -199,4 +322,213 @@ elif menu == "학과 비교":
 
     st.header("⚖️ 학과 비교")
 
-    st.info("Part 7에서 구현됩니다.")
+    major_list = sorted(df["major"].unique())
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        major1 = st.selectbox(
+            "첫 번째 학과",
+            major_list,
+            key="major1"
+        )
+
+    with col2:
+        major2 = st.selectbox(
+            "두 번째 학과",
+            major_list,
+            index=1 if len(major_list) > 1 else 0,
+            key="major2"
+        )
+
+    if major1 == major2:
+        st.warning("서로 다른 학과를 선택해주세요.")
+    else:
+
+        row1 = df[df["major"] == major1].iloc[0]
+        row2 = df[df["major"] == major2].iloc[0]
+
+        st.divider()
+
+        compare_df = pd.DataFrame({
+
+            "항목": [
+                "학과 소개",
+                "추천 MBTI",
+                "관심 분야",
+                "좋아하는 과목",
+                "배우는 과목",
+                "필요한 역량",
+                "개설 대학"
+            ],
+
+            major1: [
+                row1["description"],
+                row1["mbti"],
+                row1["interest"],
+                row1["subject"],
+                row1["subjects"],
+                row1["ability"],
+                row1["universities"]
+            ],
+
+            major2: [
+                row2["description"],
+                row2["mbti"],
+                row2["interest"],
+                row2["subject"],
+                row2["subjects"],
+                row2["ability"],
+                row2["universities"]
+            ]
+
+        })
+
+        st.dataframe(
+            compare_df,
+            use_container_width=True,
+            hide_index=True
+        )
+###
+# ==========================================================
+# 데이터 불러오기
+# ==========================================================
+
+@st.cache_data
+def load_data():
+
+    try:
+        df = pd.read_excel("major_data.xlsx")
+
+    except FileNotFoundError:
+        st.error("major_data.xlsx 파일이 없습니다.")
+        st.stop()
+
+    required_columns = [
+        "major",
+        "description",
+        "mbti",
+        "interest",
+        "subject",
+        "subjects",
+        "ability",
+        "universities"
+    ]
+
+    for column in required_columns:
+
+        if column not in df.columns:
+
+            st.error(f"'{column}' 컬럼이 없습니다.")
+
+            st.stop()
+
+    return df.fillna("")
+
+
+df = load_data()
+# ==========================================================
+# 추천 점수 계산
+# ==========================================================
+
+def calculate_score(row, user_mbti, user_interest, user_subject):
+
+    score = 0
+    reasons = []
+
+    # -------------------------
+    # MBTI
+    # -------------------------
+    major_mbti = str(row["mbti"]).split(";")
+
+    if user_mbti in major_mbti:
+        score += 30
+        reasons.append(f"{user_mbti} 성향과 잘 맞습니다.")
+
+    # -------------------------
+    # 관심분야
+    # -------------------------
+    major_interest = str(row["interest"]).split(";")
+
+    matched_interest = []
+
+    for interest in user_interest:
+
+        if interest in major_interest:
+            score += 20
+            matched_interest.append(interest)
+
+    if matched_interest:
+        reasons.append(
+            "관심 분야가 일치합니다. (" +
+            ", ".join(matched_interest) +
+            ")"
+        )
+
+    # -------------------------
+    # 좋아하는 과목
+    # -------------------------
+    major_subject = str(row["subject"]).split(";")
+
+    matched_subject = []
+
+    for subject in user_subject:
+
+        if subject in major_subject:
+            score += 15
+            matched_subject.append(subject)
+
+    if matched_subject:
+        reasons.append(
+            "좋아하는 과목이 일치합니다. (" +
+            ", ".join(matched_subject) +
+            ")"
+        )
+
+    if score > 100:
+        score = 100
+
+    return score, reasons
+    # ==========================================================
+# 추천 학과 계산
+# ==========================================================
+
+def recommend_majors(df, mbti, interests, subjects):
+
+    result = []
+
+    for _, row in df.iterrows():
+
+        score, reasons = calculate_score(
+            row,
+            mbti,
+            interests,
+            subjects
+        )
+
+        result.append({
+
+            "major": row["major"],
+
+            "score": score,
+
+            "reason": reasons,
+
+            "description": row["description"],
+
+            "subjects": row["subjects"],
+
+            "ability": row["ability"],
+
+            "universities": row["universities"]
+
+        })
+
+    result = sorted(
+        result,
+        key=lambda x: x["score"],
+        reverse=True
+    )
+
+    return result[:5]
+    
